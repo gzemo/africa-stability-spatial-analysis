@@ -8,6 +8,7 @@ The present analysis tested a spatially oriented hypothesis over data collected 
 ---
 
 **Report** available at: [report](https://github.com/gzemo/africa-stability-spatial-analysis/blob/main/report.pdf)
+
 **Spatial analysis notebook** available at: [spatial_analysis](https://github.com/gzemo/africa-stability-spatial-analysis/blob/main/spatial_test.pdf)
 
 ---
