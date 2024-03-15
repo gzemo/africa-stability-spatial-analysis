@@ -1,3 +1,5 @@
+# Extract and process record given a YYYYMM date 
+
 import os
 import io
 import sys
