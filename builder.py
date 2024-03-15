@@ -10,17 +10,24 @@ import geopandas as gpd
 
 
 class DayEstimator():
-
+	"""
+ 	Example Usage:
+		de = DayEstimator(
+			date = "20200101",
+			cameos = [],
+			filepath_final_df = "./records.csv", 
+			filepath_geometries = "./Africa_Boundaries-shp/Africa_Boundaries.dbf",
+			filepath_colnames = "./colnames.txt"
+			)
+		
+		de.process_day()
+	"""
 	def __init__(self, date:str, cameos:list,
 		filepath_final_df:str,
 		filepath_geometries:str,
 		filepath_colnames:str):
 
 		assert isinstance(date, str) and len(date)==8, "Not a valid input date!"
-
-		#country_codes = pd.read_csv(filepath_country_codes, sep="\t")
-		#country_list = country_codes[country_codes.Alpha3_code.notnull()].Alpha3_code.tolist()
-		#self.country_list = country_list
 
 		self.date = date
 		self.cameos = cameos
@@ -32,8 +39,6 @@ class DayEstimator():
 		self.header = []
 		with open(filepath_colnames, "r") as f:
 			self.header = [line.strip() for line in f.readlines()]
-		#self.header.extend(["geometry", "CountryISO", "CountryName"])
-
 
 	def _retrieve_daily_records(self):
 		"""
@@ -97,29 +102,9 @@ class DayEstimator():
 		if current_df.shape[0] == 0:
 			return pd.DataFrame()
 
-
 		geom_tosave = []
 		# Check if some character is hindring the conversion to float
 		for i,line in current_df.iterrows():
-			#for cname in ["Actor1Geo_Lat", "Actor1Geo_Long",
-			#				"Actor2Geo_Lat", "Actor2Geo_Long"]:
-
-				# # check for punctuation in string format
-				# if type(line) == str:
-				# 	punct = set(line.cname).intersection(
-				# 		set(string.ascii_letters)\
-				# 		.union(set(string.punctuation)-set([".","-"])))
-
-				# 	if len(punct) > 0:
-
-				# 		print("\n*** ",punct)
-
-				# 		tmp, toremove = list(line.cname), list(punct)
-				# 		for item in (toremove):
-				# 			tmp.remove(item) 
-				# 		line.cname = float("".join(tmp))
-
-				# 		print("after correction:", line.cname)
 					
 			# check for actor position to consider
 			location = [line.Actor1Geo_Lat, line.Actor1Geo_Long, line.Actor2Geo_Lat, line.Actor2Geo_Long]
@@ -222,9 +207,6 @@ class DayEstimator():
 
 			daily_files.append(current_df)
 
-			#for _, line in current_df.iterrows():
-			#	self._update_file(line.tolist())
-
 		tosave = pd.concat(daily_files)
 
 		try:
@@ -233,15 +215,3 @@ class DayEstimator():
 			tosave.to_csv(f"./records/{self.date}_records.csv")
 
 		print(f"Completed!", end="\n")
-
-"""
-de = DayEstimator(
-	date = "20200101",
-	cameos = [],
-	filepath_final_df = "./records.csv", 
-	filepath_geometries = "./Africa_Boundaries-shp/Africa_Boundaries.dbf",
-	filepath_colnames = "./colnames.txt"
-	)
-
-de.process_day()
-"""
