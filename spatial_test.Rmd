@@ -1,0 +1,388 @@
+---
+title: 'Spatial Analysis'
+date: 'March 4th, 2024'
+author: 
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    theme: readable
+    toc: true
+    toc_float: true
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE,
+                      message=FALSE,
+                      tidy.opts=list(width.cutoff = 80),
+                      tidy = FALSE)
+```
+
+# Introduction
+
+## Data loading and processing
+
+```{r, echo=TRUE}
+rm(list = ls()) # remove all variables in the current workspace
+library(sf); library(tmap); library(spdep); library(spatialreg); library(tidyverse)
+setwd('~/Scrivania/geospatial/project')
+```
+
+Countries that are to be considered for the final analysis that were filtered according the availability of data.
+
+```{r, echo=TRUE}
+common  <- c('CMR', 'GNB', 'ERI', 'MAR', 'LBY', 'ETH', 'GHA', 'DZA',
+             'SWZ', 'TZA', 'ZAF', 'AGO', 'GNQ', 'GAB', 'MLI', 'TCD',
+             'COG', 'NGA', 'BEN', 'CAF', 'TGO', 'GIN', 'GMB', 'MRT',
+             'BWA', 'COD', 'SSD', 'ZWE', 'KEN', 'MWI', 'RWA', 'BDI',
+             'NER', 'LBR', 'BFA', 'CIV', 'SEN', 'EGY', 'ZMB', 'NAM',
+             'TUN', 'SOM', 'LSO', 'SDN', 'SLE', 'MOZ', 'UGA')
+```
+
+Loading the shapefile and filtering according to the countries "ISO" codes.
+
+```{r, echo=TRUE, include=FALSE}
+africa <- st_read("./Africa_Boundaries-shp/")
+africa <- africa[africa$ISO %in% common,]
+africa <- africa[order(africa$ISO),]
+```
+
+With `st_make_valid` the polygons' geometry are checked and fixed in order to correctly estimate the spatial lag matrix by means of contiguity (countries that share a common border).
+
+```{r, echo=TRUE}
+africa <- st_make_valid(africa)
+```
+
+Neighbours `nb` object had been estimated by listing all contiguous countries that have a border in common.
+
+```{r, echo=TRUE}
+nb  <- spdep::poly2nb(africa)
+nbW <- nb2listw(nb, style="W", zero.policy = TRUE)
+```
+
+Predictors and the dependent variable are loaded.
+
+```{r, echo=TRUE}
+predictors <- read.csv("./data/event_predictors.csv")
+predictors <- predictors[order(predictors$ISO),]
+
+stability <- read.csv("./data/stability_indexes.csv")
+stability <- stability[order(stability$ISO),]
+```
+
+We finally defined the formula that will be used as follows in order to test Spatial autoregressive models. Specifically, the current purpose is to define a function that maps the relation between the amount of different event type occurring in each country within a given one-year span to the stability index.
+
+```{r, echo=TRUE}
+formula <- stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+  EventRoot10 + EventRoot12 + EventRoot13 + EventRoot14 +
+  EventRoot19 + AvgTone + GoldsteinScale 
+```
+
+
+# Analysing events occurring in 2020
+
+## Subset selection according to `year`
+Subset of records belonging to the current year under examination are filtered and merged into a final dataframe object (`df`).
+```{r, echo=TRUE}
+year <- "2020"
+pred <- predictors[predictors$Year==year,]
+stab <- stability[stability$Year==year,] 
+df <- list(pred, stab) %>% reduce(full_join, by='ISO')
+```
+
+## Moran Index
+
+We need first to evaluate whether the dependent variable may show some spatial correlation pattern over the current lag matrix representation. A Moran Index test is executed showing the following result:
+
+```{r, echo=TRUE}
+moran.test(df$stability, nbW, randomisation=FALSE)
+```
+
+A significant positive spatial autocorrelation is found (*Moran I = 0.28, p-value = 0.001*): this may allow to assume that a spatial dependency is occurring. 
+
+## Ordinary Least Square (OLS) estimation and spatial dependency
+
+According to Elhorst (2010) procedure we need first to test whether the OLS model estimated below is found to yield a significant result in Lagrange Multiplier test (LM-test). This allow to proceed with the estimation of regression models considering also predictors' spatial components.
+A linear model is estimated and coefficients were computed according to the standard Least Square approach: coefficients and their relative level of significance are shown below:
+```{r, echo=TRUE}
+l <- lm(formula, data=df)
+summary(l)
+```
+
+The only predictor that shows a significant effect is the amount of GDELT event associated to the `EventRootCode = 19` (mass-violence-related events). Specifically, the amount of violence/coercition-based events seem to have an impact on the stability index by a negative trend ($\beta = -0.5 \times 10^{-3}$).
+
+The *Lagrange Multiplier test* (LM test) is then applied with the purpose of detecting which statistic may better explain any error or lag component (local or global spatial spillover effect respectively). As shown below a significant result (*p-value \< 0.05*) over the `adjRSlag` statistic which refers to the test for lag dependence in the possible presence of a missing lagged dependent variable is found. This will further enforce the idea that the spatial effect may be described globally with autoregressive models as described in the following sections.
+
+```{r, echo=TRUE}
+LMtest <- spdep::lm.RStests(l, nbW, zero.policy=TRUE, test="all")
+summary(LMtest)
+```
+
+## Spatial autoregressive global spillover models
+
+### Spatial Durbin Model (SDM)
+Following the Elhorst criteria a SDM is estimated in order to test whether $\rho$ and $\theta$ coefficients will be considered significantly different from zero to further confirm this model against a simplier global spatial spillover model.
+
+```{r, echo=TRUE}
+sdm <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW, type="mixed",
+                zero.policy=TRUE)
+#summary(sdm)
+```
+
+### Spatial Autoregressive Model (SAR)
+A SAR model is also estimated in order to be compared.
+```{r, echo=TRUE}
+sar <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW,
+                zero.policy=TRUE)
+```
+
+### Testing The Likelihood Ratio test (LRT)
+
+```{r, echo=TRUE}
+anova(sar, sdm)
+```
+
+According to the result (*LRT p-value > 0.05*) the Null hypothesis ($H_0 : \theta = 0$) can not be rejected, meaning that the SDR model is not suitable to provide a good approximation of the global spatial spillover effect given that $\theta$ had been estimated to be not significantly different from zero.
+
+Therefore, the SAR model is considered to be more suited to explain the spatial dependency. SAR-related coefficients are displayed as follows:
+
+```{r, echo=TRUE}
+summary(sar)
+```
+
+The only predictor that turned out to be significant is `EventRoot19` (*p-value < 0.05*) and its coefficient was found to be negative ($\beta = -5.23\times 10^{-5}$) meaning that a negative change in one unit of the predictor can be associated to a positive Stability index increment measured in that country. This result can be explained in light of the LR test results computed over the spatial lag parameter $\rho$ for which it can be stated that the Null hypothesis ($H_0 : \rho = 0$) is accepted and thus the inclusion of the lagged values seems not to improve the model. Consequently, given that there is no sufficient evidence regarding the local spatial dependency from the Lagrange Multiplier test ($p_{adjRSerr}=0.06$, the adjusted statistic referring to the Rao's Score test for error dependence) and since the Null hypotheses $H_0 : \theta=\rho=0$ has been accepted, one may rely on the simpliest Linear Regression to better describe the relationship between the yearly event counts and the stability index.
+
+To conclude, AIC criteria are displayed in order to compare these models according to their goodness of fit.
+```{r, echo=TRUE}
+print("AIC:")
+print(paste("OLS:",round(AIC(l),3), 
+            " SDM:",round(AIC(sdm),3),
+            " SAR:",round(AIC(sar),3),  sep=" "))
+```
+It can be noticed how AIC estimated from the OLS and SAR models is similar. This can further support the choice of the former while mapping the current set of predictors to the countries' stability index.
+
+# Analysing events occurring in 2021
+
+## Subset selection according to `year`
+
+```{r, echo=TRUE}
+year <- "2021"
+pred <- predictors[predictors$Year==year,]
+stab <- stability[stability$Year==year,] 
+df <- list(pred, stab) %>% reduce(full_join, by='ISO')
+```
+
+## Moran I
+Again, a positive Moran Index (0.36) is found to be significant (*p-value = 0.0001*) and a spatial effect is occurring over the stability index estimated over this year.
+```{r, echo=TRUE}
+moran.test(df$stability, nbW, randomisation=FALSE)
+```
+
+## Ordinary Least Square (OLS) estimation and spatial dependency
+In the following code chunks the Elhorst procedure is tested again over the current subset of data. An OLS is tested and coefficients are shown below:
+```{r, echo=TRUE}
+l <- lm(formula, data=df)
+summary(l)
+```
+
+Again `EventRoot19` proved to be significant (*p-value = 0.001*) yielding a negative coefficient ($\beta = -1.08 \times 10^{-3}$).
+Following the result of the LM test which points out how RS test for both the default and adjusted statistics are significant (*p-value < 0.05* in both conditions): consequently, the condition to test spatial regression models with global spillover effect are met.
+
+```{r, echo=TRUE}
+LMtest <- spdep::lm.RStests(l, nbW, zero.policy=TRUE, test="all")
+summary(LMtest)
+```
+
+## Spatial autoregressive global spillover models
+
+### Spatial Durbin Model (SDM)
+
+```{r, echo=TRUE}
+sdm <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW, type="mixed",
+                zero.policy=TRUE)
+```
+
+### Spatial Autoregressive Model (SAR)
+
+```{r, echo=TRUE}
+sar <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW,
+                zero.policy=TRUE)
+```
+
+### Testing The Likelihood Ratio test (LRT)
+
+```{r, echo=TRUE}
+anova(sar, sdm)
+```
+
+
+According to the LRT there is no sufficient evidence to further support the SDM given that the Null hypothesis has to be rejected and therefore $\theta$ is considered to be equal to zero.
+
+By contrast, the SAR model summary points out that the LRT addressing the $H_0 : \rho = 0$ is rejected (*p-value < 0.01*) yielding therefore to accept the Alternative hypothesis $\rho \neq 0$ (shown below). This implies that the simplier SAR model can be considered as a solution that best represents the current stability effect in a global spillover manner. This evidence is further support by the AIC showing SAR as the model that achieved the smaller information criterion.
+
+```{r, echo=TRUE}
+print("AIC:")
+print(paste("OLS:",round(AIC(l),3), 
+            " SDM:",round(AIC(sdm),3),
+            " SAR:",round(AIC(sar),3),  sep=" "))
+```
+
+In the following chunk SAR coefficients and previously discussed results from the LRT with rejected $H_0 : \rho = 0$ are shown. 
+
+```{r, echo=TRUE}
+summary(sar)
+```
+
+The `EventRoot19` predictor is still highlighting a negative effect ($\beta = -0.9 \times 10^{-3}$ with *p-value = 0.001*): this coefficient can be explained correctly according to the impacts evaluation as follows in the next section.
+
+### Impacts
+```{r, echo=TRUE}
+impacts_sar <- spatialreg::impacts(sar, listw=nbW, R=1000)
+s <- summary(impacts_sar, zstats=TRUE, short=TRUE)
+im <- data.frame(s$res)
+p <- data.frame(s$pzmat)
+rownames(im) <- c("EventRoot5","EventRoot6","EventRoot7","EventRoot10",
+                   "EventRoot12","EventRoot13","EventRoot14","EventRoot19",
+                   "AvgTone","GoldsteinScale")
+```
+
+We are going to select those predictors whose probability associated to the simulation test is below 0.05:
+```{r, echo=TRUE}
+rown <- rownames(p[p$Direct<0.05 | p$Indirect<0.05 | p$Total<0.05,])
+```
+the corresponding *impact effects* are shown below,
+```{r, echo=TRUE}
+print("Displaying impact effects:")
+im[rown, ]
+```
+along with the corresponding *probability*.
+```{r, echo=TRUE}
+print("Displaying impact probability:")
+p[rown, ]
+```
+From the results shown above a negative and significant direct impact (-0.001, *p-value = 0.0002*) implies that the higher the amount of events coded as belonging to the root code 19, the more likely its stability index is to be affected negatively in the same country's borders. No significance evidence has been found for indirect impact on the same predictor.
+
+# Analysing events occurring in 2022
+
+## Subset selection according to `year`
+
+```{r, echo=TRUE}
+year <- "2022"
+pred <- predictors[predictors$Year==year,]
+stab <- stability[stability$Year==year,] 
+df <- list(pred, stab) %>% reduce(full_join, by='ISO')
+```
+
+## Moran I
+As it was found for the past years, the subset of 2022 records shows a positive Moran Index (0.33) which indeed is significant (*p-value = 0.0002*).
+```{r, echo=TRUE}
+moran.test(df$stability, nbW, randomisation=FALSE)
+```
+
+## Ordinary Least Square (OLS) estimation and spatial dependency
+
+The current linear model fitted over the 2022 events highlighted a single significant predictor (`EventRoot6`, amount of event related to material cooperation) in a positive $\beta$ coefficient ($2 \times 10^{-3}$) (*p-value < 0.05*).
+
+```{r, echo=TRUE}
+l <- lm(formula, data=df)
+summary(l)
+```
+
+Evidence of the the global spillover effect in the standard RS statistics (*p-value = 0.009*) is present along with a slightly significant probability associated to error dependencies (`RSerr`) allowing to reject the $H_0$ for both classes of models (global and local spillover). Given that the former is allows to reject the Null hypothesis with higher confidence, global spatial autoregressive models will be fitted in the next section.
+
+```{r, echo=TRUE}
+LMtest <- spdep::lm.RStests(l, nbW, zero.policy=TRUE, test="all")
+summary(LMtest)
+```
+
+## Spatial autoregressive global spillover models
+
+### Spatial Durbin Model (SDM)
+
+```{r, echo=TRUE}
+sdm <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW, type="mixed",
+                zero.policy=TRUE)
+```
+
+### Spatial Autoregressive Model (SAR)
+
+```{r, echo=TRUE}
+sar <- lagsarlm(stability ~ EventRoot5 + EventRoot6 + EventRoot7 +
+                EventRoot10 + EventRoot12 + EventRoot13 +
+                EventRoot14 + EventRoot19 + AvgTone +
+                GoldsteinScale, data = df,
+                listw=nbW,
+                zero.policy=TRUE)
+```
+
+
+### Testing The Likelihood Ratio test (LRT)
+Again from LRT it can be stated that SDM can be rejected in favor of SAR model considering that the Null hypothesis for which $H_0 : \theta = 0$ needs to be accepted (*p-value = 0.11*).
+
+```{r, echo=TRUE}
+anova(sar, sdm)
+```
+
+Moreover while comparing the AIC of each of the model here tested considering the 2022 subset we got that:
+
+```{r, echo=TRUE}
+print("AIC:")
+print(paste("OLS:",round(AIC(l),3), 
+            " SDM:",round(AIC(sdm),3),
+            " SAR:",round(AIC(sar),3),  sep=" "))
+```
+Here SAR related coefficients are displayed and the LR test evaluating whether $\rho = 0$ under the Null hypothesis yield to accept the Alternative hypothesis considering the current probability (0.005). $\rho$ is significantly different from zero and thus SAR is correctly explaining the current spatial dependency.
+
+```{r, echo=TRUE}
+summary(sar)
+```
+
+### Impacts
+
+```{r, echo=TRUE}
+impacts_sar <- spatialreg::impacts(sar, listw=nbW, R=1000)
+s <- summary(impacts_sar, zstats=TRUE, short=TRUE)
+im <- data.frame(s$res)
+p <- data.frame(s$pzmat)
+rownames(im) <- c("EventRoot5","EventRoot6","EventRoot7","EventRoot10",
+                   "EventRoot12","EventRoot13","EventRoot14","EventRoot19",
+                   "AvgTone","GoldsteinScale")
+```
+
+We are going to select those predictors whose probability associated to the simulation test is below 0.05:
+```{r, echo=TRUE}
+rown <- rownames(p[p$Direct<0.05 | p$Indirect<0.05 | p$Total<0.05,])
+```
+the corresponding *impact effects* are shown below,
+```{r, echo=TRUE}
+print("Displaying impact effects:")
+im[rown, ]
+```
+along with the corresponding *probability*.
+```{r, echo=TRUE}
+print("Displaying impact probability:")
+p[rown, ]
+```
+A positive and (slightly) significant direct impact (0.002, *p-value = 0.04*) on the amount of events that represent any form of material cooperation (`EventRoot6`) is displayed as above showing that the higher the occurrence of goods trading promotion, the higher the stability index of that country on average.
