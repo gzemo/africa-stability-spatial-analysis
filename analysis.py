@@ -1,3 +1,7 @@
+#--------------------------------------------------------------------------------------------------------------
+# General utilities function to perform dataset extraction considering BATCH_SIZE records to retain in memory #
+#--------------------------------------------------------------------------------------------------------------
+
 import os
 import time
 import pandas as pd
