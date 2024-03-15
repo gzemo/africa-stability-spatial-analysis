@@ -41,7 +41,6 @@ def load_store_records(datapath):
 	print("Saving into file:")
 	df.to_parquet("./data/records_2020_2023.parquet")
 	print("Elapsed: ", round(t1-t0, 3), "sec")
-	#return(df)
 
 
 def load_geometries(geom_filename):
@@ -232,7 +231,6 @@ def get_neighbours(geom_filename):
 		neighbours = geometries[~geometries.geometry.disjoint(country.geometry)].ISO.tolist()
 		neighbours = [name for name in neighbours if country.ISO != name]
 		toreturn[country.ISO] = neighbours
-		#geometries.at[i, "neigh"] = ", ".join(neighbours)
 	return toreturn
 
 
@@ -264,11 +262,8 @@ def extract_relationships(record_file, geom_filename):
 
 				if neighbours[country]==[]:
 					continue 
-
 				filt_geom = geometries[geometries.ISO.isin(neighbours[country])]
-
 				filtered = gpd.sjoin(batch, filt_geom, predicate='within')
-
 				if filtered.shape[0] > 0:
 					print(f"{country}: found {filtered.shape[0]} entries in {year}.")
 
@@ -290,7 +285,6 @@ def extract_relationships(record_file, geom_filename):
 
 			# saving the filtered dataset
 			tmp = pd.concat(tosave[country])
-			#tmp.to_parquet(f"./data/neighbours_2023_{country}.parquet")
 
 			# saving the filtered dataset by performing group by operators
 			current = tmp.groupby(["Year","Month", "Day"])[["AvgTone","GoldsteinScale"]].mean().reset_index()
@@ -329,14 +323,9 @@ def extract_relationships_foreach_neighbours(record_file, geom_filename, year):
 				continue 
 
 			filt_geom = geometries[geometries.ISO.isin(neighbours[country])]
-
 			filtered = gpd.sjoin(batch, filt_geom, predicate='within')
-
-			# filtered = filtered.groupby(by = "ISO")["AvgTone"].mean().reset_index()
-
 			if filtered.shape[0] > 0:
 				print(f"{country}: found {filtered.shape[0]} entries in {year}.")
-
 				tmp = pd.DataFrame({
 					"ISO":[country for i in range(filtered.AvgTone.shape[0])],
 					"nISO": filtered.ISO_left,
@@ -391,6 +380,6 @@ if __name__ == "__main__":
 	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2020")
 	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2021")
 	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2022")
-	extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2023")
-	extract_relationships(RECORD_FILE,GEOM_FILE)
+	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2023")
+	#extract_relationships(RECORD_FILE,GEOM_FILE)
 
