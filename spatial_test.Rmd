@@ -159,7 +159,7 @@ Therefore, the SAR model is considered to be more suited to explain the spatial 
 summary(sar)
 ```
 
-The only predictor that turned out to be significant is `EventRoot19` (*p-value < 0.05*) and its coefficient was found to be negative ($\beta = -5.23\times 10^{-5}$) meaning that a negative change in one unit of the predictor can be associated to a positive Stability index increment measured in that country. This result can be explained in light of the LR test results computed over the spatial lag parameter $\rho$ for which it can be stated that the Null hypothesis ($H_0 : \rho = 0$) is accepted and thus the inclusion of the lagged values seems not to improve the model. Consequently, given that there is no sufficient evidence regarding the local spatial dependency from the Lagrange Multiplier test ($p_{adjRSerr}=0.06$, the adjusted statistic referring to the Rao's Score test for error dependence) and since the Null hypothesis $H_0 : \theta=\rho=0$ has been accepted, one may rely on the simpliest Linear Regression to better describe the relationship between the yearly event counts and the stability index.
+The only predictor that turned out to be significant is `EventRoot19` (*p-value < 0.05*) and its coefficient was found to be negative ($\beta = -5.23\times 10^{-5}$) meaning that a negative change in one unit of the predictor can be associated to a positive Stability index increment measured in that country. This result can be explained in light of the LR test results computed over the spatial lag parameter $\rho$ for which it can be stated that the Null hypothesis ($H_0 : \rho = 0$) is accepted and thus the inclusion of the lagged values seems not to improve the model. Consequently, given that there is no sufficient evidence regarding the local spatial dependency from the Lagrange Multiplier test ($p_{adjRSerr}=0.06$, the adjusted statistic referring to the Rao's Score test for error dependence) and since the Null hypothesis $H_0 : \theta=0$ and  $H_0 : \rho=0$ has been accepted, one may rely on the simpliest Linear Regression to better describe the relationship between the yearly event counts and the stability index.
 
 To conclude, AIC criteria are displayed in order to compare these models according to their goodness of fit.
 ```{r, echo=TRUE}
@@ -233,13 +233,13 @@ anova(sar, sdm)
 ```
 
 
-According to the LRT there is no sufficient evidence to further support the SDM given that the Null hypothesis has to be rejected and therefore $\theta$ is considered to be equal to zero.
+According to the LRT there is no sufficient evidence to further support the SDM given that the LRT Null hypothesis $H_0 : \theta=0$ has to be accepted (*p-value > 0.05*) and therefore $\theta$ can be considered equal to zero. Following, SAR coefficients are displayed.
 
 ```{r, echo=TRUE}
 summary(sar)
 ```
 
-By contrast, the SAR model summary points out that the LRT addressing the $H_0 : \rho = 0$ is rejected (*p-value < 0.01*) yielding therefore to accept the Alternative hypothesis $\rho \neq 0$ (shown below). This implies that the simplier SAR model can be considered as a solution that may best represent the current spatial stability index effect in a global spillover manner. 
+By contrast, the SAR model summary points out that the LRT addressing the $H_0 : \rho = 0$ is rejected (*p-value < 0.01*) yielding therefore to accept the Alternative hypothesis $H_1: \rho \neq 0$ (shown below). This implies that the simplier SAR model can be considered as a solution that may best represent the current spatial stability index effect in a global spillover manner. 
 
 The `EventRoot19` predictor is still highlighting a negative effect ($\beta = -0.9 \times 10^{-3}$ with *p-value = 0.001*): this coefficient can be explained correctly according to the impacts evaluation as follows in the next section.
 
@@ -254,6 +254,7 @@ print(paste("OLS:",round(AIC(l),3),
 
 
 ### Impacts
+Impact assessment will be addressed in the current section: 
 ```{r, echo=TRUE}
 impacts_sar <- spatialreg::impacts(sar, listw=nbW, R=1000)
 s <- summary(impacts_sar, zstats=TRUE, short=TRUE)
@@ -268,7 +269,7 @@ We are going to select those predictors whose probability associated to the simu
 ```{r, echo=TRUE}
 rown <- rownames(p[p$Direct<0.05 | p$Indirect<0.05 | p$Total<0.05,])
 ```
-the corresponding *impact effects* are shown below,
+the corresponding *impact effects* are shown as follows:
 ```{r, echo=TRUE}
 print("Displaying impact effects:")
 im[rown, ]
@@ -278,7 +279,8 @@ along with the corresponding *probability*.
 print("Displaying impact probability:")
 p[rown, ]
 ```
-From the results shown above a negative and significant Direct Impact (-0.001, *p-value = 0.0001*) implies that the higher the amount of events coded as belonging to the root code 19, the more likely its stability index is to be affected negatively in the same country's borders. No significance evidence has been found for indirect impact on the same predictor.
+From the results shown above a negative and significant Direct Impact (-0.001, *p-value < 0.001*) implies that the higher the amount of events coded as belonging to the root code 19, the more likely the stability index of a country is to be affected negatively within its own borders.
+
 
 # Analysing events occurring in 2022
 
@@ -306,7 +308,7 @@ l <- lm(formula, data=df)
 summary(l)
 ```
 
-Evidence of the the global spillover effect in the standard RS statistics (*p-value = 0.009*) is present along with a slightly significant probability associated to error dependencies (`RSerr`) allowing to reject the $H_0$ for both classes of models (global and local spillover). Given that the former is allows to reject the Null hypothesis with higher confidence, global spatial autoregressive models will be fitted in the next section.
+Evidence of the the global spillover effect in the standard RS statistics (*p-value = 0.009*) is present along with a slightly significant probability associated to error dependencies (`RSerr`) allowing to reject the $H_0$ for both classes of models (global and local spillover). Given that the former allows to reject the Null hypothesis with higher confidence, global spatial autoregressive models will be fitted in the next section.
 
 ```{r, echo=TRUE}
 LMtest <- spdep::lm.RStests(l, nbW, zero.policy=TRUE, test="all")
@@ -385,4 +387,4 @@ along with the corresponding *probability*.
 print("Displaying impact probability:")
 p[rown, ]
 ```
-A positive and (slightly) significant direct impact (0.002, *p-value = 0.03*) on the amount of events that represent any form of material cooperation (`EventRoot6`) is displayed as above showing that the higher the occurrence of goods trading promotion, the higher the stability index of that country on average.
+A positive and significant direct impact (0.002, *p-value = 0.04*) on the amount of events that represent any form of material cooperation (`EventRoot6`) is displayed as above showing that the higher the occurrence of goods trading promotion, the higher the stability index of that country on average. Material cooperation seems likely to foster stability within each country whereas no Indirect and Total impact are found to be statistically significant.
