@@ -8,6 +8,22 @@ import pandas as pd
 import geopandas as gpd
 import pyarrow.parquet as pq
 
+"""
+example usage
+if __name__ == "__main__":
+
+	DATAPATH    = "./records"
+	GEOM_FILE   = "./Africa_Boundaries-shp/"
+	GEOMETRIES  = "./Africa_Boundaries-shp/Africa_Boundaries.dbf"
+	RECORD_FILE = "./data/records_2020_2023.parquet"
+	BATCH_SIZE  = 4*10**5
+
+	extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2020")
+	extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2021")
+	extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2022")
+	extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2023")
+	extract_relationships(RECORD_FILE,GEOM_FILE)
+ """
 
 DATAPATH = "./records"
 GEOMETRIES = "Africa_Boundaries-shp/Africa_Boundaries.dbf"
@@ -69,8 +85,8 @@ def preprocess_batch(batch):
 
 def preprocess_batch_geometry(batch):
 	"""
-	Description
-	"""
+	Filter a batch of records according to the uniqueness of lat/lon entries
+ 	"""
 	t0 = time.time()
 	print("Batch geometry preprocessing...")
 	geom_tosave = []
@@ -109,7 +125,10 @@ def preprocess_batch_geometry(batch):
 
 def filter_by_year(record_file, year):
 	"""
-	Return the whole parque filtered by the given year
+	Return the whole parque file filtering records belonging to the given year
+ 	Args: 
+  		record_file: (str), filename
+    		year:
 	"""
 	t0 = time.time()
 	print("Filtering by year:", year)
@@ -133,6 +152,9 @@ def filter_by_EOI(record_file, event):
 	"""
 	Extract from the whole time span record file all entries that match a given
 	EventBaseCode.
+  	Args: 
+  		record_file: (str), filename
+    		event:
 	Return DataFrame with geometry.
 	"""
 	t0 = time.time()
@@ -271,6 +293,7 @@ def extract_relationships(record_file, geom_filename):
 				if filtered.shape[0] > 0:
 					print(f"{country}: found {filtered.shape[0]} entries in {year}.")
 
+					# collapsing in a DataFrame
 					tmp = pd.DataFrame({
 						"ISO":[country for i in range(filtered.AvgTone.shape[0])],
 						"Actor1CountryCode":filtered.Actor1CountryCode,
@@ -323,7 +346,7 @@ def extract_relationships_foreach_neighbours(record_file, geom_filename, year):
 
 		for country in neighbours:
 
-			if neighbours[country]==[]:
+			if neighbours[country] == []:
 				continue 
 
 			filt_geom = geometries[geometries.ISO.isin(neighbours[country])]
@@ -355,35 +378,3 @@ def extract_relationships_foreach_neighbours(record_file, geom_filename, year):
 		
 	tostore_df = pd.concat(tostore)
 	tostore_df.to_parquet(f"./data/neighbours_laginfo_{year}.parquet")
-
-
-
-if __name__ == "__main__":
-
-	#df = load_store_records(DATAPATH)
-	#df.to_parquet("./records_2020_2023.parquet")
-	#geometries = load_geometries(GEOMETRIES)
-	#batch = singlebatch(RECORD_FILE)
-	#c1 = filter_by_EOI(RECORD_FILE, 203)
-	#c2 = filter_by_EOI(RECORD_FILE, 204)
-
-	import os
-	import time
-	import pandas as pd
-	import geopandas as gpd
-	import matplotlib.pyplot as plt
-
-	from analysis import *
-
-	DATAPATH    = "./records"
-	GEOM_FILE   = "./Africa_Boundaries-shp/"
-	GEOMETRIES  = "./Africa_Boundaries-shp/Africa_Boundaries.dbf"
-	RECORD_FILE = "./data/records_2020_2023.parquet"
-	BATCH_SIZE  = 4*10**5
-
-	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2020")
-	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2021")
-	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2022")
-	#extract_relationships_foreach_neighbours(RECORD_FILE,GEOM_FILE, "2023")
-	#extract_relationships(RECORD_FILE,GEOM_FILE)
-
