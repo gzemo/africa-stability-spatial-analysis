@@ -28,6 +28,19 @@ Data available at:
 
 ---
 
+## Requirements:
+Python:
+```{python}
+pip install -r requirements.txt
+```
+R:
+```{r}
+install.packages(c("sf", "tmap", "spdep",  "spatialreg", "tidyverse"))
+```
+
+---
+
+
 # Credits and Licences:
 * **ArcGIS**: unlicensed
 * *Event Data* (modified) **GDELT**:  (https://www.gdeltproject.org/)
