@@ -26,6 +26,7 @@ Data available at:
 * `./data/event_predictors.csv`: final predictor dataset merging counts of all events happened according to time and eventCode.
 * `./data/stability_indexes.csv`: stability index of each country according to years.
 
+---
 
 # Credits and Licences:
 * **ArcGIS**: unlicensed
