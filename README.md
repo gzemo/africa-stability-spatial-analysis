@@ -42,6 +42,6 @@ install.packages(c("sf", "tmap", "spdep",  "spatialreg", "tidyverse"))
 
 
 # Credits and Licences:
-* **ArcGIS**: unlicensed
+* **ArcGIS Hub**: unlicensed
 * *Event Data* (modified) **GDELT**:  (https://www.gdeltproject.org/)
 * *Countries stability index* **World Bank Open Data**: CC-BY (https://www.worldbank.org/en/home)
