@@ -1,3 +1,8 @@
+#------------------------------------------------------------------------------
+# General utility function to retrieve from and filter GDELT records in a
+# daily manner
+#------------------------------------------------------------------------------
+
 import os
 import io
 import csv
@@ -12,15 +17,15 @@ import geopandas as gpd
 class DayEstimator():
 	"""
  	Example Usage:
-		de = DayEstimator(
-			date = "20200101",
-			cameos = [],
-			filepath_final_df = "./records.csv", 
-			filepath_geometries = "./Africa_Boundaries-shp/Africa_Boundaries.dbf",
-			filepath_colnames = "./colnames.txt"
-			)
-		
-		de.process_day()
+	>>> de = DayEstimator(
+		date = "20200101",
+		cameos = [],
+		filepath_final_df = "./records.csv", 
+		filepath_geometries = "./Africa_Boundaries-shp/Africa_Boundaries.dbf",
+		filepath_colnames = "./colnames.txt"
+		)
+	
+	>>> de.process_day()
 	"""
 	def __init__(self, date:str, cameos:list,
 		filepath_final_df:str,
@@ -103,6 +108,7 @@ class DayEstimator():
 			return pd.DataFrame()
 
 		geom_tosave = []
+		
 		# Check if some character is hindring the conversion to float
 		for i,line in current_df.iterrows():
 					
@@ -139,8 +145,6 @@ class DayEstimator():
 				geometry=gpd.points_from_xy(
 					tosave.lon,
 					tosave.lat),
-					#current_df[current_df.columns[49]],
-					#current_df[current_df.columns[48]]),
 				crs="EPSG:4326")
 
 		filtered = gpd.sjoin(gdf, self.geometries, predicate='within')
@@ -161,7 +165,6 @@ class DayEstimator():
 			return pd.DataFrame()
 
 		try:			
-			#current_df = current_df.astype({"EventBaseCode":int})
 			filtered = current_df[current_df.EventBaseCode>=140] # Hardcoded
 			return filtered
 
@@ -197,7 +200,6 @@ class DayEstimator():
 			try:
 				current_df = self._download_process_single(record)
 				current_df = self._filter_latlon(current_df)
-				#current_df = self._filter_cameo(current_df)
 
 				if current_df.shape[0] == 0:
 					continue
