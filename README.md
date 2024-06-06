@@ -1,4 +1,4 @@
-# Africa Stability Spatial Analysis
+# African Stability Index Spatial Analysis
 
 ## Abstract
 The present analysis tested a spatially oriented hypothesis over data collected in a period of 3 years within a subset of countries belonging to the African continent. Spatial autoregressive model assessment had been computed with the purpose of evaluating whether significant and persistent relations between event predictors and countries' stability score can be found throughout the period under examination.
